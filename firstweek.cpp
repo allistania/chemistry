@@ -116,16 +116,6 @@ void printComponent(const Component& component) {
     cout << "Charge: " << component.charge << ")";
 }
 
-// Function for outputting information about the reactans
-void printReactants(const Component& component) {
-    cout << component.name << " (";
-    for (const auto& element : component.elements) {
-        cout << element.first << ":" << element.second << " ";
-    }
-    cout << "Charge: " << 0 << ")";
-}
-
-
 int main() {
     string equation;
     cout << "Enter a chemical equation (e.g., H2 + O2 = H2O): ";
@@ -150,7 +140,7 @@ int main() {
     // Displaying information about components
     cout << "Reactants: " << endl;
     for (const auto& component : reactants) {
-        printReactants(component);
+        printComponent(component);
         cout << endl;
     }
 
