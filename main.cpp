@@ -291,26 +291,6 @@ void printComponentDetails(const Component& component) {
     cout << "    Total charge: " << component.charge << endl;
 }
 
-// Function to print the balanced equation
-/*void printBalancedEquation(const vector<Component>& reactants, const vector<Component>& products) {
-    // Print balanced equation
-    cout << "Balanced equation: ";
-    // Print reactants
-    for (size_t i = 0; i < reactants.size(); ++i) {
-        if (i != 0) cout << " + ";
-        if (reactants[i].coefficient != 1) cout << reactants[i].coefficient << " ";
-        cout << reactants[i].name;
-    }
-    cout << " = ";
-    // Print products
-    for (size_t i = 0; i < products.size(); ++i) {
-        if (i != 0) cout << " + ";
-        if (products[i].coefficient != 1) cout << products[i].coefficient << " ";
-        cout << products[i].name;
-    }
-    cout  << endl;
-} */
-
 // Function to get balanced equation as string
 string getBalancedEquationString(const vector<Component>& reactants, const vector<Component>& products) {
     stringstream ss;
@@ -482,42 +462,6 @@ void processInput(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
-    /*bool verbose = false;
-    string equation;
-
-    // Parse command line arguments
-    for (int i = 1; i < argc; ++i) {
-        string arg = argv[i];
-        if (arg == "-v") {
-            verbose = true;
-        } else {
-            // Assume this is the equation (concatenate with spaces if needed)
-            if (!equation.empty()) equation += " ";
-            equation += arg;
-        }
-    }
-
-    // If equation wasn't provided as arguments, read from stdin
-    if (equation.empty()) {
-        cout << "Enter a chemical equation (e.g., H2 + O2 = H2O): ";
-        getline(cin, equation);
-    }
-
-    size_t equalPos = equation.find('=');
-    if (equalPos == string::npos) {
-        cerr << "Invalid equation format." << endl;
-        return 1;
-    }
-
-    auto reactants = splitComponents(equation.substr(0, equalPos));
-    auto products = splitComponents(equation.substr(equalPos + 1));
-
-    balanceEquation(reactants, products);
-    if (verbose) {
-        printVerboseOutput(reactants, products);
-    } else {
-        printBalancedEquation(reactants, products);
-    }*/
 
     // Process initial input (either from command line or interactive)
     processInput(argc, argv);
