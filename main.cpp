@@ -295,9 +295,15 @@ void printBalancedEquation(const vector<Component>& reactants, const vector<Comp
         if (products[i].coefficient != 1) cout << products[i].coefficient << " ";
         cout << products[i].name;
     }
-    cout << endl << endl;
+    cout  << endl;
+} 
+   
+// Print detailed information
+void printVerboseOutput(const vector<Component>& reactants, const vector<Component>& products) {
+    cout << "Balanced equation: ";
+    printBalancedEquation(reactants, products);
+    cout << endl;
     
-    // Print detailed information
     cout << "Reactants details:" << endl;
     for (const auto& component : reactants) {
         printComponentDetails(component);
@@ -309,12 +315,28 @@ void printBalancedEquation(const vector<Component>& reactants, const vector<Comp
     }
 }
 
-int main() {
-    cout << "Enter a chemical equation (e.g., H2 + O2 = H2O): ";
+int main(int argc, char* argv[]) {
+    bool verbose = false;
     string equation;
-    getline(cin, equation);
 
-    // Separation of the equation into reactants and products
+    // Parse command line arguments
+    for (int i = 1; i < argc; ++i) {
+        string arg = argv[i];
+        if (arg == "-v") {
+            verbose = true;
+        } else {
+            // Assume this is the equation (concatenate with spaces if needed)
+            if (!equation.empty()) equation += " ";
+            equation += arg;
+        }
+    }
+
+    // If equation wasn't provided as arguments, read from stdin
+    if (equation.empty()) {
+        cout << "Enter a chemical equation (e.g., H2 + O2 = H2O): ";
+        getline(cin, equation);
+    }
+
     size_t equalPos = equation.find('=');
     if (equalPos == string::npos) {
         cerr << "Invalid equation format." << endl;
@@ -325,7 +347,11 @@ int main() {
     auto products = splitComponents(equation.substr(equalPos + 1));
 
     balanceEquation(reactants, products);
-    printBalancedEquation(reactants, products);
+    if (verbose) {
+        printVerboseOutput(reactants, products);
+    } else {
+        printBalancedEquation(reactants, products);
+    }
 
     return 0;
 }
