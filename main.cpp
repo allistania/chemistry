@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+#include <limits>
 
 using namespace std;
 
@@ -19,6 +20,18 @@ struct Component {
     int charge;
     double coefficient;
 };
+
+// Structure for storing saved reactions
+struct SavedReaction {
+    string originalEquation;
+    string balancedEquation;
+    vector<Component> reactants;
+    vector<Component> products;
+};
+
+// Global vector to store saved reactions
+vector<SavedReaction> savedReactions;
+
 
 // Elements with fixed oxidation states
 unordered_map<string, int> fixedOxidationStates = {
@@ -279,7 +292,7 @@ void printComponentDetails(const Component& component) {
 }
 
 // Function to print the balanced equation
-void printBalancedEquation(const vector<Component>& reactants, const vector<Component>& products) {
+/*void printBalancedEquation(const vector<Component>& reactants, const vector<Component>& products) {
     // Print balanced equation
     cout << "Balanced equation: ";
     // Print reactants
@@ -296,6 +309,29 @@ void printBalancedEquation(const vector<Component>& reactants, const vector<Comp
         cout << products[i].name;
     }
     cout  << endl;
+} */
+
+// Function to get balanced equation as string
+string getBalancedEquationString(const vector<Component>& reactants, const vector<Component>& products) {
+    stringstream ss;
+    // Print reactants
+    for (size_t i = 0; i < reactants.size(); ++i) {
+        if (i != 0) ss << " + ";
+        if (reactants[i].coefficient != 1) ss << reactants[i].coefficient << " ";
+        ss << reactants[i].name;
+    }
+    ss << " = ";
+    // Print products
+    for (size_t i = 0; i < products.size(); ++i) {
+        if (i != 0) ss << " + ";
+        if (products[i].coefficient != 1) ss << products[i].coefficient << " ";
+        ss << products[i].name;
+    }
+    return ss.str();
+}
+
+void printBalancedEquation(const vector<Component>& reactants, const vector<Component>& products) {
+    cout << "Balanced equation: " << getBalancedEquationString(reactants, products) << endl;
 } 
    
 // Print detailed information
@@ -315,8 +351,138 @@ void printVerboseOutput(const vector<Component>& reactants, const vector<Compone
     }
 }
 
-int main(int argc, char* argv[]) {
+// Function to save the current reaction
+void saveReaction(const string& originalEquation, 
+                 const vector<Component>& reactants, 
+                 const vector<Component>& products) {
+    SavedReaction reaction;
+    reaction.originalEquation = originalEquation;
+    reaction.balancedEquation = getBalancedEquationString(reactants, products);
+    reaction.reactants = reactants;
+    reaction.products = products;
+    savedReactions.push_back(reaction);
+    cout << "Reaction saved successfully!" << endl;
+}
+
+// Function to display saved reactions
+void displaySavedReactions() {
+    if (savedReactions.empty()) {
+        cout << "No reactions saved yet." << endl;
+        return;
+    }
+    
+    cout << "Saved reactions:" << endl;
+    for (size_t i = 0; i < savedReactions.size(); ++i) {
+        cout << i + 1 << ". Original: " << savedReactions[i].originalEquation << endl;
+        cout << "   Balanced: " << savedReactions[i].balancedEquation << endl;
+    }
+}
+
+// Function to delete a saved reaction
+void deleteSavedReaction() {
+    if (savedReactions.empty()) {
+        cout << "No reactions to delete." << endl;
+        return;
+    }
+    
+    displaySavedReactions();
+    cout << "Enter the number of reaction to delete (1-" << savedReactions.size() << "): ";
+    
+    size_t choice;
+    while (!(cin >> choice) || choice < 1 || choice > savedReactions.size()) {
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cout << "Invalid input. Please enter a number between 1 and " << savedReactions.size() << ": ";
+    }
+    
+    savedReactions.erase(savedReactions.begin() + choice - 1);
+    cout << "Reaction deleted successfully!" << endl;
+}
+
+// Function to show the action menu after balancing
+void showActionMenu() {
+    cout << "\nChoose action:" << endl;
+    cout << "1. Save this reaction" << endl;
+    cout << "2. Delete a saved reaction" << endl;
+    cout << "3. View all saved reactions" << endl;
+    cout << "4. Balance another equation" << endl;
+    cout << "5. Exit" << endl;
+    cout << "Enter your choice (1-5): ";
+}
+
+// Main function to process command line arguments or interactive input
+void processInput(int argc, char* argv[]) {
     bool verbose = false;
+    string equation;
+
+    // Parse command line arguments
+    for (int i = 1; i < argc; ++i) {
+        string arg = argv[i];
+        if (arg == "-v") {
+            verbose = true;
+        } else {
+            // Assume this is the equation (concatenate with spaces if needed)
+            if (!equation.empty()) equation += " ";
+            equation += arg;
+        }
+    }
+
+    // If equation wasn't provided as arguments, read from stdin
+    if (equation.empty()) {
+        cout << "Enter a chemical equation (e.g., H2 + O2 = H2O): ";
+        getline(cin, equation);
+    }
+
+    size_t equalPos = equation.find('=');
+    if (equalPos == string::npos) {
+        cerr << "Invalid equation format." << endl;
+        return;
+    }
+
+    auto reactants = splitComponents(equation.substr(0, equalPos));
+    auto products = splitComponents(equation.substr(equalPos + 1));
+
+    balanceEquation(reactants, products);
+    
+    if (verbose) {
+        printVerboseOutput(reactants, products);
+    } else {
+        printBalancedEquation(reactants, products);
+    }
+
+    // Show action menu
+    int choice;
+    do {
+        showActionMenu();
+        while (!(cin >> choice) || choice < 1 || choice > 5) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter a number between 1 and 5: ";
+        }
+        
+        switch (choice) {
+            case 1:
+                saveReaction(equation, reactants, products);
+                break;
+            case 2:
+                deleteSavedReaction();
+                break;
+            case 3:
+                displaySavedReactions();
+                break;
+            case 4:
+                cin.ignore();
+                processInput(0, nullptr); // Process new equation
+                return;
+            case 5:
+                cout << "Exiting program..." << endl;
+                exit(0);
+        }
+    } while (choice != 4 && choice != 5);
+}
+
+int main(int argc, char* argv[]) {
+    /*bool verbose = false;
     string equation;
 
     // Parse command line arguments
@@ -351,7 +517,10 @@ int main(int argc, char* argv[]) {
         printVerboseOutput(reactants, products);
     } else {
         printBalancedEquation(reactants, products);
-    }
+    }*/
+
+    // Process initial input (either from command line or interactive)
+    processInput(argc, argv);
 
     return 0;
 }
