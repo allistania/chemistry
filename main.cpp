@@ -47,6 +47,25 @@ unordered_map<string, vector<int>> variableOxidationStates = {
     {"Ni", {2}}, {"Cu", {1, 2}}, {"Pb", {2, 4}}, {"Sn", {2, 4}}
 };
 
+// Function to display help information
+void displayHelp() {
+    cout << "Chemical Equation Balancer - Help\n";
+    cout << "Usage:\n";
+    cout << "  ./program [options] [equation]\n\n";
+    cout << "Options:\n";
+    cout << "  --help       Show this help message\n";
+    cout << "  -v           Verbose output (show detailed information)\n\n";
+    cout << "Examples:\n";
+    cout << "  ./program \"H2 + O2 = H2O\"\n";
+    cout << "  ./program -v \"Fe + O2 = Fe2O3\"\n";
+    cout << "  ./program (launches interactive mode)\n\n";
+    cout << "Interactive mode commands:\n";
+    cout << "  1 - Balance a new equation\n";
+    cout << "  2 - View saved reactions\n";
+    cout << "  3 - Delete a saved reaction\n";
+    cout << "  4 - Exit program\n";
+}
+
 // Function to parse a component string and get the elements and their number
 vector<pair<string, int>> parseElementCounts(const string& componentStr) {
     vector<pair<string, int>> elementCounts;
@@ -455,6 +474,14 @@ void processInteractiveMode() {
 }
 
 int main(int argc, char* argv[]) {
+    // Check for --help flag
+    for (int i = 1; i < argc; ++i) {
+        string arg = argv[i];
+        if (arg == "--help") {
+            displayHelp();
+            return 0;
+        }
+    }
     if (argc > 1) {
         // Command-line mode: join all arguments as the equation
         string equation;
