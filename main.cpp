@@ -32,7 +32,6 @@ struct SavedReaction {
 // Global vector to store saved reactions
 vector<SavedReaction> savedReactions;
 
-
 // Elements with fixed oxidation states
 unordered_map<string, int> fixedOxidationStates = {
     {"H", 1}, {"O", -2}, {"F", -1}, {"Li", 1}, {"Be", 2}, {"B", 3},
@@ -282,7 +281,7 @@ void printComponentDetails(const Component& component) {
     for (const auto& element : component.elements) {
         string elementName = element.first;
         int count = element.second;
-        int totalAtoms = count * component.coefficient; // Умножаем на коэффициент
+        int totalAtoms = count * component.coefficient;
         int oxidationState = component.oxidationStates.at(elementName);
         cout << "    Element: " << elementName 
              << " (Oxidation: " << oxidationState 
@@ -311,13 +310,12 @@ string getBalancedEquationString(const vector<Component>& reactants, const vecto
 }
 
 void printBalancedEquation(const vector<Component>& reactants, const vector<Component>& products) {
-    cout << "Balanced equation: " << getBalancedEquationString(reactants, products) << endl;
+    cout << getBalancedEquationString(reactants, products) << endl;
 } 
    
 // Print detailed information
 void printVerboseOutput(const vector<Component>& reactants, const vector<Component>& products) {
-    cout << "Balanced equation: ";
-    printBalancedEquation(reactants, products);
+    cout << "Balanced equation: " << getBalancedEquationString(reactants, products) << endl;
     cout << endl;
     
     cout << "Reactants details:" << endl;
@@ -341,7 +339,6 @@ void saveReaction(const string& originalEquation,
     reaction.reactants = reactants;
     reaction.products = products;
     savedReactions.push_back(reaction);
-    cout << "Reaction saved successfully!" << endl;
 }
 
 // Function to display saved reactions
@@ -379,18 +376,17 @@ void deleteSavedReaction() {
     cout << "Reaction deleted successfully!" << endl;
 }
 
-// Function to show the action menu after balancing
-void showActionMenu() {
-    cout << "\nChoose action:" << endl;
-    cout << "1. Save this reaction" << endl;
-    cout << "2. Delete a saved reaction" << endl;
-    cout << "3. View all saved reactions" << endl;
-    cout << "4. Balance another equation" << endl;
-    cout << "5. Exit" << endl;
-    cout << "Enter your choice (1-5): ";
+// Function to show the main menu
+void showMainMenu() {
+    cout << "\nChemical Equation Balancer" << endl;
+    cout << "1. Balance a new equation" << endl;
+    cout << "2. View saved reactions" << endl;
+    cout << "3. Delete a saved reaction" << endl;
+    cout << "4. Exit" << endl;
+    cout << "Enter your choice (1-4): ";
 }
 
-// Main function to process command line arguments or interactive input
+// Function to process the equation in command-line mode
 void processInput(int argc, char* argv[]) {
     bool verbose = false;
     string equation;
@@ -430,41 +426,70 @@ void processInput(int argc, char* argv[]) {
         printBalancedEquation(reactants, products);
     }
 
-    // Show action menu
-    int choice;
-    do {
-        showActionMenu();
-        while (!(cin >> choice) || choice < 1 || choice > 5) {
-            cin.clear();
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            cout << "Invalid input. Please enter a number between 1 and 5: ";
-        }
-        
-        switch (choice) {
-            case 1:
-                saveReaction(equation, reactants, products);
-                break;
-            case 2:
-                deleteSavedReaction();
-                break;
-            case 3:
-                displaySavedReactions();
-                break;
-            case 4:
-                cin.ignore();
-                processInput(0, nullptr); // Process new equation
-                return;
-            case 5:
-                cout << "Exiting program..." << endl;
-                exit(0);
-        }
-    } while (choice != 4 && choice != 5);
+}
+
+// Function to process the equation in interactive mode
+void processInteractiveMode() {
+    string equation;
+    cout << "Enter a chemical equation (e.g., H2 + O2 = H2O): ";
+    cin.ignore();
+    getline(cin, equation);
+
+    size_t equalPos = equation.find('=');
+    if (equalPos == string::npos) {
+        cerr << "Invalid equation format." << endl;
+        return;
+    }
+
+    auto reactants = splitComponents(equation.substr(0, equalPos));
+    auto products = splitComponents(equation.substr(equalPos + 1));
+
+    balanceEquation(reactants, products);
+    
+    cout << "\nBalanced equation:" << endl;
+    printBalancedEquation(reactants, products);
+    
+    // Automatically save in interactive mode
+    saveReaction(equation, reactants, products);
+    cout << "Reaction has been automatically saved." << endl;
 }
 
 int main(int argc, char* argv[]) {
-
-    // Process initial input (either from command line or interactive)
+    if (argc > 1) {
+        // Command-line mode: join all arguments as the equation
+        string equation;
+        for (int i = 1; i < argc; ++i) {
+            if (i > 1) equation += " ";
+            equation += argv[i];
+        }
     processInput(argc, argv);
-
+    } else {
+        // Interactive mode with menu
+        int choice;
+        do {
+            showMainMenu();
+            while (!(cin >> choice) || choice < 1 || choice > 4) {
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                cout << "Invalid input. Please enter a number between 1 and 4: ";
+            }
+            
+            switch (choice) {
+                case 1:
+                    processInteractiveMode();
+                    break;
+                case 2:
+                    displaySavedReactions();
+                    break;
+                case 3:
+                    deleteSavedReaction();
+                    break;
+                case 4:
+                    cout << "Exiting program..." << endl;
+                    break;
+            }
+        } while (choice != 4);
+    }
+    
     return 0;
 }
