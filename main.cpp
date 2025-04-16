@@ -19,6 +19,7 @@ struct Component {
     map<string, int> oxidationStates;
     int charge;
     double coefficient;
+    bool isOrganic;
 };
 
 // Structure for storing saved reactions
@@ -100,6 +101,24 @@ int calculateOxidationState(const string& element, const map<string, int>& eleme
     return (totalCharge - knownChargeSum) / elements.at(element);
 }
 
+// Function to calculate the organiic oxidation state of an element in a compound
+int calculateOrganicOxidationState(const string& element, const map<string, int>& elements, int totalCharge) {
+    if (element == "C") {
+        int knownChargeSum = 0;
+        for (const auto& el : elements) {
+            if (el.first != "C") {
+                if (el.first == "H") knownChargeSum += 1 * el.second;
+                else if (el.first == "O") knownChargeSum += -2 * el.second;
+                else if (fixedOxidationStates.count(el.first)) {
+                    knownChargeSum += fixedOxidationStates[el.first] * el.second;
+                }
+            }
+        }
+        return (totalCharge - knownChargeSum) / elements.at("C");
+    }
+    return 0;
+}
+
 // Function for parsing a chemical component
 Component parseComponent(const string& componentStr) {
     Component component;
@@ -112,15 +131,34 @@ Component parseComponent(const string& componentStr) {
         component.elements[ec.first] = ec.second;
     }
 
-    // Calculate oxidation states for all elements
-    for (const auto& el : component.elements) {
-        if (fixedOxidationStates.count(el.first)) {
-            component.oxidationStates[el.first] = fixedOxidationStates[el.first];
-        } else if (variableOxidationStates.count(el.first)) {
-            component.oxidationStates[el.first] = calculateOxidationState(el.first, component.elements, component.charge);
+    if (component.elements.count("C") && component.elements["C"] > 0) {
+        component.isOrganic = true;
+        
+        for (const auto& el : component.elements) {
+            if (el.first == "C") {
+                component.oxidationStates["C"] = calculateOrganicOxidationState("C", component.elements, component.charge);
+            }
+            else if (el.first == "H") {
+                component.oxidationStates["H"] = 1;
+            }
+            else if (el.first == "O") {
+                component.oxidationStates["O"] = -2;
+            }
+            else if (fixedOxidationStates.count(el.first)) {
+                component.oxidationStates[el.first] = fixedOxidationStates[el.first];
+            }
         }
     }
-
+    else {
+        for (const auto& el : component.elements) {
+            if (fixedOxidationStates.count(el.first)) {
+                component.oxidationStates[el.first] = fixedOxidationStates[el.first];
+            }
+            else if (variableOxidationStates.count(el.first)) {
+                component.oxidationStates[el.first] = calculateOxidationState(el.first, component.elements, component.charge);
+            }
+        }
+    }
     return component;
 }
 
@@ -156,6 +194,7 @@ vector<string> collectAllElements(const vector<Component>& reactants, const vect
 vector<vector<double>> buildEquationMatrix(const vector<string>& elements,
                                          const vector<Component>& reactants,
                                          const vector<Component>& products) {
+    bool isOrganicReaction = false;
     // Number of variables (coefficients) is reactants.size() + products.size()
     int numVars = reactants.size() + products.size();
     vector<vector<double>> matrix(elements.size(), vector<double>(numVars + 1, 0.0));
@@ -176,6 +215,20 @@ vector<vector<double>> buildEquationMatrix(const vector<string>& elements,
                 matrix[j][reactants.size() + i] = -products[i].elements.at(elements[j]);
             }
         }
+    }
+    if (isOrganicReaction) {
+        vector<double> carbonOxidationRow(numVars + 1, 0.0);
+        for (int i = 0; i < reactants.size(); ++i) {
+            if (reactants[i].oxidationStates.count("C")) {
+                carbonOxidationRow[i] = reactants[i].oxidationStates.at("C") * reactants[i].elements.at("C");
+            }
+        }
+        for (int i = 0; i < products.size(); ++i) {
+            if (products[i].oxidationStates.count("C")) {
+                carbonOxidationRow[reactants.size() + i] = -products[i].oxidationStates.at("C") * products[i].elements.at("C");
+            }
+        }
+        matrix.push_back(carbonOxidationRow);
     }
 
     return matrix;
@@ -348,7 +401,76 @@ void printVerboseOutput(const vector<Component>& reactants, const vector<Compone
     }
 }
 
-// Function to save the current reaction
+// Function to normalize the equation (sort components)
+string normalizeEquation(const string& equation) {
+    size_t equalPos = equation.find('=');
+    if (equalPos == string::npos) return equation;
+    
+    string leftSide = equation.substr(0, equalPos);
+    string rightSide = equation.substr(equalPos + 1);
+    
+    // Separate the components
+    auto parseSide = [](const string& side) {
+        vector<string> components;
+        stringstream ss(side);
+        string component;
+        while (getline(ss, component, '+')) {
+            component.erase(0, component.find_first_not_of(" \t"));
+            component.erase(component.find_last_not_of(" \t") + 1);
+            if (!component.empty()) {
+                components.push_back(component);
+            }
+        }
+        return components;
+    };
+    
+    vector<string> leftComponents = parseSide(leftSide);
+    vector<string> rightComponents = parseSide(rightSide);
+    
+    // Sorting the components
+    sort(leftComponents.begin(), leftComponents.end());
+    sort(rightComponents.begin(), rightComponents.end());
+    
+    // Putting it back together
+    string normalized;
+    for (size_t i = 0; i < leftComponents.size(); ++i) {
+        if (i != 0) normalized += " + ";
+        normalized += leftComponents[i];
+    }
+    normalized += " = ";
+    for (size_t i = 0; i < rightComponents.size(); ++i) {
+        if (i != 0) normalized += " + ";
+        normalized += rightComponents[i];
+    }
+    
+    return normalized;
+}
+
+// Updated reaction search function
+vector<SavedReaction> findReactionsByPartialInput(const string& partialInput) {
+    vector<SavedReaction> foundReactions;
+    
+    string cleanedInput = partialInput;
+    cleanedInput.erase(remove(cleanedInput.begin(), cleanedInput.end(), ' '), cleanedInput.end());
+    
+    // Normalize the input
+    string normalizedInput = normalizeEquation(partialInput);
+    
+    for (const auto& reaction : savedReactions) {
+        // Normalizing the stored reaction
+        string normalizedSaved = normalizeEquation(reaction.originalEquation);
+        
+        // We check for a match on either side
+        if (normalizedSaved.find(normalizedInput) != string::npos ||
+            normalizedInput.find(normalizedSaved) != string::npos) {
+            foundReactions.push_back(reaction);
+        }
+    }
+    
+    return foundReactions;
+}
+
+//Updated reaction save function
 void saveReaction(const string& originalEquation, 
                  const vector<Component>& reactants, 
                  const vector<Component>& products) {
@@ -357,6 +479,15 @@ void saveReaction(const string& originalEquation,
     reaction.balancedEquation = getBalancedEquationString(reactants, products);
     reaction.reactants = reactants;
     reaction.products = products;
+    
+    // We check if there is already such a reaction (normalized)
+    string normalizedNew = normalizeEquation(originalEquation);
+    for (const auto& saved : savedReactions) {
+        if (normalizeEquation(saved.originalEquation) == normalizedNew) {
+            return; // reaction already saved
+        }
+    }
+    
     savedReactions.push_back(reaction);
 }
 
@@ -405,6 +536,63 @@ void showMainMenu() {
     cout << "Enter your choice (1-4): ";
 }
 
+void processInteractiveMode() {
+    string equation;
+    cout << "Enter a chemical equation (e.g., H2 + O2 = H2O) or partial equation (e.g., H2+O2=): ";
+    cin.ignore();
+    getline(cin, equation);
+
+    size_t equalPos = equation.find('=');
+    bool isPartialInput = (equalPos != string::npos) && 
+                         (equalPos == equation.length() - 1 || 
+                          equation.substr(equalPos + 1).find_first_not_of(" \t") == string::npos);
+
+    if (isPartialInput) {
+        auto foundReactions = findReactionsByPartialInput(equation);
+        
+        if (foundReactions.empty()) {
+            cout << "\nNo saved reactions found matching: " << equation << endl;
+        } else {
+            cout << "\nFound " << foundReactions.size() << " saved reactions:\n";
+            for (size_t i = 0; i < foundReactions.size(); ++i) {
+                cout << i + 1 << ". " << foundReactions[i].balancedEquation << endl;
+            }
+            
+            cout << "\nEnter number to view details (0 to cancel): ";
+            size_t choice;
+            while (!(cin >> choice) || choice > foundReactions.size()) {
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                cout << "Invalid input. Please enter a number between 0 and " << foundReactions.size() << ": ";
+            }
+            
+            if (choice != 0) {
+                const auto& selected = foundReactions[choice - 1];
+                cout << "\nSelected reaction:\n";
+                cout << "Original: " << selected.originalEquation << "\n";
+                cout << "Balanced: " << selected.balancedEquation << "\n";
+            }
+        }
+        return;
+    }
+
+    if (equalPos == string::npos) {
+        cerr << "Invalid equation format." << endl;
+        return;
+    }
+
+    auto reactants = splitComponents(equation.substr(0, equalPos));
+    auto products = splitComponents(equation.substr(equalPos + 1));
+
+    balanceEquation(reactants, products);
+    
+    cout << "\nBalanced equation:\n";
+    printBalancedEquation(reactants, products);
+    
+    saveReaction(equation, reactants, products);
+    cout << "Reaction has been automatically saved.\n";
+}
+
 // Function to process the equation in command-line mode
 void processInput(int argc, char* argv[]) {
     bool verbose = false;
@@ -445,32 +633,6 @@ void processInput(int argc, char* argv[]) {
         printBalancedEquation(reactants, products);
     }
 
-}
-
-// Function to process the equation in interactive mode
-void processInteractiveMode() {
-    string equation;
-    cout << "Enter a chemical equation (e.g., H2 + O2 = H2O): ";
-    cin.ignore();
-    getline(cin, equation);
-
-    size_t equalPos = equation.find('=');
-    if (equalPos == string::npos) {
-        cerr << "Invalid equation format." << endl;
-        return;
-    }
-
-    auto reactants = splitComponents(equation.substr(0, equalPos));
-    auto products = splitComponents(equation.substr(equalPos + 1));
-
-    balanceEquation(reactants, products);
-    
-    cout << "\nBalanced equation:" << endl;
-    printBalancedEquation(reactants, products);
-    
-    // Automatically save in interactive mode
-    saveReaction(equation, reactants, products);
-    cout << "Reaction has been automatically saved." << endl;
 }
 
 int main(int argc, char* argv[]) {
