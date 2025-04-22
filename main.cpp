@@ -67,19 +67,33 @@ void displayHelp() {
     cout << "  4 - Exit program\n";
 }
 
-// Function to parse a component string and get the elements and their number
 vector<pair<string, int>> parseElementCounts(const string& componentStr) {
     vector<pair<string, int>> elementCounts;
-    regex elementRegex("([A-Z][a-z]*)(\\d*)");
+    regex elementRegex("([A-Z][a-z]*)(\\d*)|(\\(([^)]+)\\))(\\d*)");
 
     sregex_iterator it(componentStr.begin(), componentStr.end(), elementRegex);
     sregex_iterator end;
 
     while (it != end) {
-        string element = (*it)[1].str();
-        string countStr = (*it)[2].str();
-        int count = countStr.empty() ? 1 : stoi(countStr);
-        elementCounts.push_back({element, count});
+        smatch match = *it;
+        if (match[1].matched) { // Regular element (no parentheses)
+            string element = match[1].str();
+            string countStr = match[2].str();
+            int count = countStr.empty() ? 1 : stoi(countStr);
+            elementCounts.push_back({element, count});
+        }
+        else if (match[3].matched) { // Group in parentheses
+            string groupContent = match[4].str();
+            string groupCountStr = match[5].str();
+            int groupCount = groupCountStr.empty() ? 1 : stoi(groupCountStr);
+            
+            // Recursively parse the content within the parentheses
+            auto innerElements = parseElementCounts(groupContent);
+            for (auto& el : innerElements) {
+                el.second *= groupCount; // Multiply by the group coefficient
+                elementCounts.push_back(el);
+            }
+        }
         ++it;
     }
     return elementCounts;
@@ -128,7 +142,7 @@ Component parseComponent(const string& componentStr) {
 
     auto elementCounts = parseElementCounts(componentStr);
     for (const auto& ec : elementCounts) {
-        component.elements[ec.first] = ec.second;
+        component.elements[ec.first] += ec.second; // Use += to sum identical elements
     }
 
     if (component.elements.count("C") && component.elements["C"] > 0) {
@@ -263,66 +277,99 @@ void gaussianElimination(vector<vector<double>>& matrix) {
 vector<double> backSubstitution(vector<vector<double>>& matrix) {
     int rows = matrix.size();
     int cols = matrix[0].size();
-    vector<double> solution(cols - 1, 1.0);
+    vector<double> solution(cols - 1, 0.0);
+
+    // Предположим, что последняя переменная свободная (x_n = 1)
+    solution[cols - 2] = 1.0;
 
     for (int i = rows - 1; i >= 0; --i) {
+        double sum = 0.0;
         int pivot = -1;
+
         for (int j = 0; j < cols - 1; ++j) {
-            if (matrix[i][j] != 0) {
-                pivot = j;
-                break;
+            if (abs(matrix[i][j]) > 1e-12) {
+                if (pivot == -1) pivot = j;
+                else sum += matrix[i][j] * solution[j];
             }
         }
 
-        if (pivot == -1) continue;
-
-        solution[pivot] = matrix[i][cols - 1];
-        for (int j = pivot + 1; j < cols - 1; ++j) {
-            solution[pivot] -= matrix[i][j] * solution[j];
-        }
-        solution[pivot] /= matrix[i][pivot];
+        if (pivot != -1)
+            solution[pivot] = (matrix[i][cols - 1] - sum) / matrix[i][pivot];
     }
 
     return solution;
 }
-
 // Function to find the greatest common divisor
 int gcd(int a, int b) {
     return b == 0 ? a : gcd(b, a % b);
 }
 
-// Function to convert solution to integer coefficients
-vector<int> convertToIntegerCoefficients(const vector<double>& solution) {
-    const double EPSILON = 1e-6;
-    double minVal = 1.0;
-    for (double num : solution) {
-        if (abs(num) < EPSILON) continue;
-        double frac = abs(num - round(num));
-        if (frac > EPSILON) {
-            minVal = min(minVal, frac);
+// Fraction structure
+struct Fraction {
+    int numerator;
+    int denominator;
+
+    Fraction(double value, double epsilon = 1e-8) {
+        int sign = value < 0 ? -1 : 1;
+        value = fabs(value);
+
+        int bestDen = 1;
+        double minError = fabs(value - round(value));
+
+        for (int d = 1; d <= 1000; ++d) {
+            int n = round(value * d);
+            double error = fabs(value - double(n) / d);
+            if (error < epsilon) {
+                numerator = sign * n;
+                denominator = d;
+                return;
+            }
+            if (error < minError) {
+                bestDen = d;
+                minError = error;
+            }
         }
+
+        numerator = sign * round(value * bestDen);
+        denominator = bestDen;
+    }
+};
+
+// Function to convert fractional coefficients to integer coefficients
+vector<int> convertToIntegerCoefficients(const vector<double>& solution) {
+    vector<Fraction> fracs;
+    vector<int> denominators;
+
+    for (double val : solution) {
+        Fraction f(val);
+        fracs.push_back(f);
+        denominators.push_back(f.denominator);
     }
 
-    double multiplier = 1.0 / minVal;
+    // Find the least common multiple of the denominators
+    int commonDen = denominators[0];
+    for (int i = 1; i < denominators.size(); ++i) {
+        commonDen = lcm(commonDen, denominators[i]);
+    }
+
+    // We get integer coefficients
     vector<int> intCoeffs;
-    for (double num : solution) {
-        intCoeffs.push_back(round(num * multiplier));
+    for (const auto& frac : fracs) {
+        intCoeffs.push_back(frac.numerator * (commonDen / frac.denominator));
     }
 
-    // Find the greatest common divisor of all coefficients
-    int commonDivisor = abs(intCoeffs[0]);
+    // We reduce by GCD
+    int commonGCD = abs(intCoeffs[0]);
     for (int i = 1; i < intCoeffs.size(); ++i) {
-        commonDivisor = gcd(commonDivisor, abs(intCoeffs[i]));
+        commonGCD = gcd(commonGCD, abs(intCoeffs[i]));
     }
 
-    // Divide by the GCD to get the simplest form
-    for (int& coeff : intCoeffs) {
-        coeff /= commonDivisor;
+    for (int& val : intCoeffs) {
+        val /= commonGCD;
     }
 
     return intCoeffs;
 }
-
 // Function to balance the chemical equation
 void balanceEquation(vector<Component>& reactants, vector<Component>& products) {
     auto elements = collectAllElements(reactants, products);
@@ -632,7 +679,6 @@ void processInput(int argc, char* argv[]) {
     } else {
         printBalancedEquation(reactants, products);
     }
-
 }
 
 int main(int argc, char* argv[]) {
