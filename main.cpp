@@ -9,6 +9,7 @@
 #include <cmath>
 #include <numeric>
 #include <limits>
+#include <fstream>
 
 using namespace std;
 
@@ -517,7 +518,106 @@ vector<SavedReaction> findReactionsByPartialInput(const string& partialInput) {
     return foundReactions;
 }
 
-//Updated reaction save function
+// Load reactions from the file
+void loadReactionsFromFile(const string& filename) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        return;
+    }
+
+    savedReactions.clear();
+
+    string line;
+    while (getline(file, line)) {
+        vector<string> parts;
+        stringstream ss(line);
+        string part;
+        while (getline(ss, part, '|')) {
+            part.erase(0, part.find_first_not_of(" \t"));
+            part.erase(part.find_last_not_of(" \t") + 1);
+            parts.push_back(part);
+        }
+
+        if (parts.size() != 4) continue;
+
+        string originalEquation = parts[0];
+        string balancedEquation = parts[1];
+        string reactantCoeffsStr = parts[2];
+        string productCoeffsStr = parts[3];
+
+        vector<double> reactantCoeffs;
+        stringstream rcStream(reactantCoeffsStr);
+        string rc;
+        while (getline(rcStream, rc, ',')) {
+            reactantCoeffs.push_back(stod(rc));
+        }
+
+        vector<double> productCoeffs;
+        stringstream pcStream(productCoeffsStr);
+        string pc;
+        while (getline(pcStream, pc, ',')) {
+            productCoeffs.push_back(stod(pc));
+        }
+
+        size_t equalPos = originalEquation.find('=');
+        if (equalPos == string::npos) continue;
+
+        vector<Component> reactants = splitComponents(originalEquation.substr(0, equalPos));
+        vector<Component> products = splitComponents(originalEquation.substr(equalPos + 1));
+
+        if (reactants.size() != reactantCoeffs.size() || products.size() != productCoeffs.size()) {
+            continue;
+        }
+
+        for (size_t i = 0; i < reactants.size(); ++i) {
+            reactants[i].coefficient = reactantCoeffs[i];
+        }
+        for (size_t i = 0; i < products.size(); ++i) {
+            products[i].coefficient = productCoeffs[i];
+        }
+
+        SavedReaction reaction;
+        reaction.originalEquation = originalEquation;
+        reaction.balancedEquation = balancedEquation;
+        reaction.reactants = reactants;
+        reaction.products = products;
+
+        savedReactions.push_back(reaction);
+    }
+
+    file.close();
+}
+
+// Save reactions to the file
+void saveReactionsToFile(const string& filename) {
+    ofstream file(filename);
+    if (!file.is_open()) {
+        cerr << "Error saving reactions to file." << endl;
+        return;
+    }
+
+    for (const auto& reaction : savedReactions) {
+        file << reaction.originalEquation << " | " << reaction.balancedEquation;
+
+        file << " | ";
+        for (size_t i = 0; i < reaction.reactants.size(); ++i) {
+            if (i > 0) file << ",";
+            file << reaction.reactants[i].coefficient;
+        }
+
+        file << " | ";
+        for (size_t i = 0; i < reaction.products.size(); ++i) {
+            if (i > 0) file << ",";
+            file << reaction.products[i].coefficient;
+        }
+
+        file << endl;
+    }
+
+    file.close();
+}
+
+// Updated reaction save function
 void saveReaction(const string& originalEquation, 
                  const vector<Component>& reactants, 
                  const vector<Component>& products) {
@@ -526,16 +626,20 @@ void saveReaction(const string& originalEquation,
     reaction.balancedEquation = getBalancedEquationString(reactants, products);
     reaction.reactants = reactants;
     reaction.products = products;
-    
-    // We check if there is already such a reaction (normalized)
+
     string normalizedNew = normalizeEquation(originalEquation);
+    bool exists = false;
     for (const auto& saved : savedReactions) {
         if (normalizeEquation(saved.originalEquation) == normalizedNew) {
-            return; // reaction already saved
+            exists = true;
+            break;
         }
     }
-    
-    savedReactions.push_back(reaction);
+
+    if (!exists) {
+        savedReactions.push_back(reaction);
+        saveReactionsToFile("reactions.txt");
+    }
 }
 
 // Function to display saved reactions
@@ -558,7 +662,7 @@ void deleteSavedReaction() {
         cout << "No reactions to delete." << endl;
         return;
     }
-    
+
     displaySavedReactions();
     cout << "Enter the number of reaction to delete (1-" << savedReactions.size() << "): ";
     
@@ -568,8 +672,9 @@ void deleteSavedReaction() {
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
         cout << "Invalid input. Please enter a number between 1 and " << savedReactions.size() << ": ";
     }
-    
+
     savedReactions.erase(savedReactions.begin() + choice - 1);
+    saveReactionsToFile("reactions.txt");
     cout << "Reaction deleted successfully!" << endl;
 }
 
@@ -645,25 +750,46 @@ void processInput(int argc, char* argv[]) {
     bool verbose = false;
     string equation;
 
-    // Parse command line arguments
     for (int i = 1; i < argc; ++i) {
         string arg = argv[i];
         if (arg == "-v") {
             verbose = true;
         } else {
-            // Assume this is the equation (concatenate with spaces if needed)
             if (!equation.empty()) equation += " ";
             equation += arg;
         }
     }
 
-    // If equation wasn't provided as arguments, read from stdin
     if (equation.empty()) {
         cout << "Enter a chemical equation (e.g., H2 + O2 = H2O): ";
         getline(cin, equation);
     }
 
+    bool isPartial = false;
     size_t equalPos = equation.find('=');
+    if (equalPos != string::npos) {
+        string rightSide = equation.substr(equalPos + 1);
+        string leftSide = equation.substr(0, equalPos);
+        if (rightSide.find_first_not_of(" \t") == string::npos ||
+            leftSide.find_first_not_of(" \t") == string::npos) {
+            isPartial = true;
+        }
+    }
+
+    if (isPartial) {
+        vector<SavedReaction> found = findReactionsByPartialInput(equation);
+        if (found.empty()) {
+            cout << "No matching reactions found." << endl;
+        } else {
+            cout << "Found " << found.size() << " reactions:" << endl;
+            for (const auto& r : found) {
+                cout << r.balancedEquation << endl;
+            }
+        }
+        return;
+    }
+
+    equalPos = equation.find('=');
     if (equalPos == string::npos) {
         cerr << "Invalid equation format." << endl;
         return;
@@ -673,16 +799,19 @@ void processInput(int argc, char* argv[]) {
     auto products = splitComponents(equation.substr(equalPos + 1));
 
     balanceEquation(reactants, products);
-    
+
     if (verbose) {
         printVerboseOutput(reactants, products);
     } else {
         printBalancedEquation(reactants, products);
     }
+
+    saveReaction(equation, reactants, products);
 }
 
 int main(int argc, char* argv[]) {
-    // Check for --help flag
+    loadReactionsFromFile("reactions.txt");
+
     for (int i = 1; i < argc; ++i) {
         string arg = argv[i];
         if (arg == "--help") {
@@ -692,15 +821,8 @@ int main(int argc, char* argv[]) {
     }
 
     if (argc > 1) {
-        // Command-line mode: join all arguments as the equation
-        string equation;
-        for (int i = 1; i < argc; ++i) {
-            if (i > 1) equation += " ";
-            equation += argv[i];
-        }
         processInput(argc, argv);
     } else {
-        // Interactive mode with menu
         int choice;
         do {
             showMainMenu();
@@ -709,7 +831,7 @@ int main(int argc, char* argv[]) {
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
                 cout << "Invalid input. Please enter a number between 1 and 4: ";
             }
-            
+
             switch (choice) {
                 case 1:
                     processInteractiveMode();
@@ -726,6 +848,6 @@ int main(int argc, char* argv[]) {
             }
         } while (choice != 4);
     }
-    
+
     return 0;
 }
