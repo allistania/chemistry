@@ -29,3 +29,5 @@ H2 + CuO = H2O + Cu2O | H2 + 2 CuO = H2O + Cu2O | 1,2 | 1,1
 H2 + CuO = O2 + CuH2 | 2 H2 + 2 CuO = O2 + 2 CuH2 | 2,2 | 1,2
 H2 + CuO = CuOH2 | H2 + CuO = CuOH2 | 1,1 | 1
 ZnSO4 + NaBH4 = Zn(BH4)2 + Na2O4S | ZnSO4 + 2 NaBH4 = Zn(BH4)2 + Na2O4S | 1,2 | 1,1
+NaOH + KMnO4 + Na2SO3 = H2O + Na2SO4 + K2MnO4 + Na2MnO4 | 2 NaOH + 2 KMnO4 + Na2SO3 = H2O + Na2SO4 + K2MnO4 + Na2MnO4 | 2,2,1 | 1,1,1,1
+HNO3 + Cu = H2O + NO2 + Cu(NO3)2 | 4 HNO3 + Cu = 2 H2O + 2 NO2 + Cu(NO3)2 | 4,1 | 2,2,1
