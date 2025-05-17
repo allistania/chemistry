@@ -31,3 +31,10 @@ H2 + CuO = CuOH2 | H2 + CuO = CuOH2 | 1,1 | 1
 ZnSO4 + NaBH4 = Zn(BH4)2 + Na2O4S | ZnSO4 + 2 NaBH4 = Zn(BH4)2 + Na2O4S | 1,2 | 1,1
 NaOH + KMnO4 + Na2SO3 = H2O + Na2SO4 + K2MnO4 + Na2MnO4 | 2 NaOH + 2 KMnO4 + Na2SO3 = H2O + Na2SO4 + K2MnO4 + Na2MnO4 | 2,2,1 | 1,1,1,1
 HNO3 + Cu = H2O + NO2 + Cu(NO3)2 | 4 HNO3 + Cu = 2 H2O + 2 NO2 + Cu(NO3)2 | 4,1 | 2,2,1
+Ca(OH)2 + H3PO4 = Ca3(PO4)2 + H2O | 3 Ca(OH)2 + 2 H3PO4 = Ca3(PO4)2 + 6 H2O | 3,2 | 1,6
+H2SO4 + NaOH = H2O + Na2SO4 | H2SO4 + 2 NaOH = 2 H2O + Na2SO4 | 1,2 | 2,1
+H2SO4 + KMnO4 + FeSO4 = H2O + K2SO4 + MnSO4 + Fe2(SO4)3 | 8 H2SO4 + 2 KMnO4 + 10 FeSO4 = 8 H2O + K2SO4 + 2 MnSO4 + 5 Fe2(SO4)3 | 8,2,10 | 8,1,2,5
+HCl + NaHCO3 = H2O + CO2 + NaCl | HCl + NaHCO3 = H2O + CO2 + NaCl | 1,1 | 1,1,1
+Cl2 + Mg = MgCl2 | Cl2 + Mg = MgCl2 | 1,1 | 1
+O2 + Al = Al2O3 | 3 O2 + 4 Al = 2 Al2O3 | 3,4 | 2
+

@@ -64,7 +64,7 @@ void printBalancedEquation(const vector<Component>& reactants, const vector<Comp
    
 // Print detailed information
 void printVerboseOutput(const vector<Component>& reactants, const vector<Component>& products) {
-    cout << "Balanced equation: " << getBalancedEquationString(reactants, products) << endl;
+    cout << "\n" << getBalancedEquationString(reactants, products) << endl;
     cout << endl;
     
     cout << "Reactants details:" << endl;
@@ -101,14 +101,16 @@ void processInteractiveMode() {
         auto foundReactions = findReactionsByPartialInput(equation);
         
         if (foundReactions.empty()) {
-            cout << "\nNo saved reactions found matching: " << equation << endl;
+           // cout << "\nNo saved reactions found matching: " << equation << endl;
         } else {
-            cout << "\nFound " << foundReactions.size() << " saved reactions:\n";
+            //cout << "\nFound " << foundReactions.size() << " saved reactions:\n";
             for (size_t i = 0; i < foundReactions.size(); ++i) {
-                cout << i + 1 << ". " << foundReactions[i].balancedEquation << endl;
+                if (i > 0) cout << " // ";
+                cout << foundReactions[i].balancedEquation;
+                //cout << i + 1 << ". " << foundReactions[i].balancedEquation << endl;
             }
             
-            cout << "\nEnter number to view details (0 to cancel): ";
+            /*cout << "\nEnter number to view details (0 to cancel): ";
             size_t choice;
             while (!(cin >> choice) || choice > foundReactions.size()) {
                 cin.clear();
@@ -121,7 +123,7 @@ void processInteractiveMode() {
                 cout << "\nSelected reaction:\n";
                 cout << "Original: " << selected.originalEquation << "\n";
                 cout << "Balanced: " << selected.balancedEquation << "\n";
-            }
+            }*/
         }
         return;
     }
@@ -177,12 +179,29 @@ void processInput(int argc, char* argv[]) {
     if (isPartial) {
         vector<SavedReaction> found = findReactionsByPartialInput(equation);
         if (found.empty()) {
-            cout << "No matching reactions found." << endl;
+            //cout << "No matching reactions found." << endl;
         } else {
-            cout << "Found " << found.size() << " reactions:" << endl;
-            for (const auto& r : found) {
-                cout << r.balancedEquation << endl;
+            //cout << "Found " << found.size() << " reactions: ";
+            for (size_t i = 0; i < found.size(); ++i) {
+                if (i > 0) cout << " // ";
+                if (verbose) {
+                    //cout << "\n=== Detailed View ===\n";
+                   // cout << "\nOriginal: " << found[i].originalEquation << "\n";
+                    cout  << "\n" << found[i].balancedEquation << "\n";
+                    cout << "\nReactants:\n";
+                    for (const auto& comp : found[i].reactants) {
+                        printComponentDetails(comp);
+                    }
+                    cout << "\nProducts:\n";
+                    for (const auto& comp : found[i].products) {
+                        printComponentDetails(comp);
+                    }
+                    //cout << "===================\n";
+                } else {
+                    cout << found[i].balancedEquation;
+                }
             }
+            cout << endl;
         }
         return;
     }

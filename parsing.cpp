@@ -98,27 +98,33 @@ Component parseComponent(const string& componentStr) {
         component.isOrganic = true;
         
         for (const auto& el : component.elements) {
-            if (el.first == "C") {
+            const string& elementName = el.first;
+            if (elementName == "C") {
                 component.oxidationStates["C"] = calculateOrganicOxidationState("C", component.elements, component.charge);
             }
-            else if (el.first == "H") {
+            else if (elementName == "H") {
                 component.oxidationStates["H"] = 1;
             }
-            else if (el.first == "O") {
+            else if (elementName == "O") {
                 component.oxidationStates["O"] = -2;
             }
-            else if (fixedOxidationStates.count(el.first)) {
-                component.oxidationStates[el.first] = fixedOxidationStates[el.first];
+            else {
+                // Handle other elements (fixed or variable)
+                if (fixedOxidationStates.count(elementName)) {
+                    component.oxidationStates[elementName] = fixedOxidationStates[elementName];
+                } else if (variableOxidationStates.count(elementName)) {
+                    component.oxidationStates[elementName] = calculateOxidationState(elementName, component.elements, component.charge);
+                }
             }
         }
     }
     else {
         for (const auto& el : component.elements) {
-            if (fixedOxidationStates.count(el.first)) {
-                component.oxidationStates[el.first] = fixedOxidationStates[el.first];
-            }
-            else if (variableOxidationStates.count(el.first)) {
-                component.oxidationStates[el.first] = calculateOxidationState(el.first, component.elements, component.charge);
+            const string& elementName = el.first;
+            if (fixedOxidationStates.count(elementName)) {
+                component.oxidationStates[elementName] = fixedOxidationStates[elementName];
+            } else if (variableOxidationStates.count(elementName)) {
+                component.oxidationStates[elementName] = calculateOxidationState(elementName, component.elements, component.charge);
             }
         }
     }
